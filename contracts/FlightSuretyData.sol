@@ -20,6 +20,7 @@ contract FlightSuretyData {
     struct Airline {
         string name;
         bool isActive;
+        bool funded;
     }
     mapping(address => Airline) public airlines;
     uint8 private airlinesCount = 0;
@@ -79,6 +80,16 @@ contract FlightSuretyData {
     }
 
     /**
+    * @dev Modifier that requires the sender to be an active airline
+    */
+    modifier requireIsAnActiveAirline()
+    {
+        require(this.isAirline(msg.sender), "Caller is not an existing airline");
+        require(this.isActiveAndFunded(msg.sender), "Caller is not yet an active airline");
+        _;
+    }
+
+    /**
     * @dev Modifier that requires the airline to be a new one
     */
     modifier isNewAirline(address airline)
@@ -101,7 +112,7 @@ contract FlightSuretyData {
     */
     modifier requireVoterToBeActive()
     {
-        require(isActive(msg.sender), "Airline cannot vote");
+        require(this.isActiveAndFunded(msg.sender), "Airline cannot vote");
         _;
     }
 
@@ -110,7 +121,7 @@ contract FlightSuretyData {
     */
     modifier requireAirlineNotActive(address _airline)
     {
-        require(!isActive(_airline), "Airline already active");
+        require(!this.isActive(_airline), "Airline already active");
         _;
     }
 
@@ -147,11 +158,28 @@ contract FlightSuretyData {
         operational = mode;
     }
 
+    /**
+    * @dev To check if the airline is an active and funded member
+    */
+    function isActiveAndFunded
+    (
+        address airline
+    )
+    external
+    view
+    returns(bool)
+    {
+        return this.isActive(airline) && this.isFunded(airline);
+    }
+
+    /**
+    * @dev To check if the airline is an active and funded member
+    */
     function isActive
     (
         address airline
     )
-    internal
+    external
     view
     returns(bool)
     {
@@ -159,7 +187,21 @@ contract FlightSuretyData {
     }
 
     /**
-    * @dev Modifier that requires the airline to be a new one
+    * @dev To check if the airline is an active and funded member
+    */
+    function isFunded
+    (
+        address airline
+    )
+    external
+    view
+    returns(bool)
+    {
+        return airlines[airline].funded;
+    }
+
+    /**
+    * @dev To check that the airline to be a new one
     */
     function isAirline
     (
@@ -169,7 +211,6 @@ contract FlightSuretyData {
     view
     returns(bool)
     {
-        //        return keccak256(abi.encode(airlines[airline].name)) != keccak256(abi.encode(""));
         return bytes(airlines[airline].name).length != 0;
     }
 
@@ -199,8 +240,9 @@ contract FlightSuretyData {
     {
         airlines[airline] = Airline({
             name: "First Airline",
-            isActive: true
-            });
+            isActive: true,
+            funded: false
+        });
         airlinesCount++;
     }
 
@@ -216,23 +258,24 @@ contract FlightSuretyData {
     )
     external
     isNewAirline(airline)
-    payable
+    requireIsAnActiveAirline
     returns(bool success, string memory message)
     {
         success = false;
         if (airlinesCount > 0 && airlinesCount <=4) {
             airlines[airline] = Airline({
                 name: name,
-                isActive: true
-                });
-            airlinesCount++;
+                isActive: true,
+                funded: false
+            });
             success = true;
             message = "Airline registered successfully";
         } else {
             airlines[airline] = Airline({
                 name: name,
-                isActive: false
-                });
+                isActive: false,
+                funded: false
+            });
             address[] memory blankArray;
             airlineToVote[airline] = blankArray;
             success = true;
@@ -273,16 +316,18 @@ contract FlightSuretyData {
         return airlineToVote[airline].length;
     }
 
+    /**
+     *  @dev register a new flight by an active airline
+    */
     function registerFlight
     (
         string calldata flight,
         uint256 timestamp
     )
     external
+    requireIsAnActiveAirline
     returns(bytes32 key)
     {
-        require(isActive(msg.sender), "Airline is not active");
-
         key = this.getFlightKey(msg.sender, flight, timestamp);
 
         flights[key] = Flight({
@@ -362,6 +407,11 @@ contract FlightSuretyData {
     public
     payable
     {
+        require(this.isActive(msg.sender), "You still need some more votes");
+        require(!this.isFunded(msg.sender), "You are already funded");
+
+        airlines[msg.sender].funded = true;
+        airlinesCount++;
     }
 
     function getFlightKey

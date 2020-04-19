@@ -59,8 +59,15 @@ contract FlightSuretyApp {
         _;
     }
 
+    modifier isExistingActiveAirline()
+    {
+        flightSuretyData.isActiveAndFunded(msg.sender);
+        _;
+    }
+
     modifier checkForRefund(uint256 amount)
     {
+        require(msg.value >= amount, "Amount id not enough");
         _;
         uint256 refund = msg.value - amount;
 
@@ -126,12 +133,25 @@ contract FlightSuretyApp {
     )
     external
     requireIsOperational
-    checkForRefund(REGISTRATION_AMOUNT)
-    payable
+    isExistingActiveAirline
     {
         (bool success, string memory message) = flightSuretyData.registerAirline(name, airline);
 
         emit AirlineRegistered(success, message, 0);
+
+        if (flightSuretyData.isActive(airline)) {
+            emit AirlineRegistered(true, "Airline accepted, waiting for funding", 0);
+        }
+    }
+
+    function fundAirline
+    (
+    )
+    public
+    payable
+    {
+        flightSuretyData.fund();
+        emit AirlineRegistered(true, "Airline funded, good to go", 0);
     }
 
     function voteAirline
@@ -144,6 +164,10 @@ contract FlightSuretyApp {
         uint votes = flightSuretyData.voteAirline(airline);
 
         emit AirlineRegistered(true, "Airline has a new vote", votes);
+
+        if (flightSuretyData.isActive(airline)) {
+            emit AirlineRegistered(true, "Airline accepted, waiting for funding", votes);
+        }
     }
 
     /**
@@ -419,5 +443,9 @@ contract FlightSuretyData {
     function buy(address airline, string calldata flight, uint256 timestamp, uint256 insuranceAmount) external;
     function creditInsurees(bytes32 key) external;
     function pay(address payable receiver) external payable returns(uint256 amount);
+    function fund() public payable;
     function getFlightKey(address airline, string calldata flight, uint256 timestamp) external returns(bytes32);
+    function isActiveAndFunded(address airline) external view returns(bool);
+    function isActive(address airline) external view returns(bool);
+    function isFunded(address airline) external view returns(bool);
 }
