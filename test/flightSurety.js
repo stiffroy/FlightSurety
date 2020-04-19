@@ -1,13 +1,11 @@
-
 var Test = require('../config/testConfig.js');
-var BigNumber = require('bignumber.js');
 
 contract('Flight Surety Tests', async (accounts) => {
 
   var config;
   before('setup contract', async () => {
     config = await Test.Config(accounts);
-    await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
+    // await config.flightSuretyData.authorizeCaller(config.flightSuretyApp.address);
   });
 
   /****************************************************************************************/
@@ -54,12 +52,16 @@ contract('Flight Surety Tests', async (accounts) => {
 
   it(`(multiparty) can block access to functions using requireIsOperational when operating status is false`, async function () {
 
-      await config.flightSuretyData.setOperatingStatus(false);
+      // just to make sure that the status is not already set to false
+      await config.flightSuretyData.setOperatingStatus(true, { from: config.owner });
+
+      // Now as we are sure that the status is true, we set it to false again
+      await config.flightSuretyData.setOperatingStatus(false, { from: config.owner });
 
       let reverted = false;
       try 
       {
-          await config.flightSurety.setTestingMode(true);
+          await config.flightSuretyApp.setTestingMode(true);
       }
       catch(e) {
           reverted = true;
@@ -74,16 +76,16 @@ contract('Flight Surety Tests', async (accounts) => {
   it('(airline) cannot register an Airline using registerAirline() if it is not funded', async () => {
     
     // ARRANGE
-    let newAirline = accounts[2];
+    let newAirline = config.testAddresses[4];
 
     // ACT
     try {
-        await config.flightSuretyApp.registerAirline(newAirline, {from: config.firstAirline});
+        await config.flightSuretyApp.registerAirline("New test Airlines", newAirline, {from: config.owner});
     }
     catch(e) {
-
     }
-    let result = await config.flightSuretyData.isAirline.call(newAirline); 
+
+    let result = await config.flightSuretyData.isAirline(newAirline);
 
     // ASSERT
     assert.equal(result, false, "Airline should not be able to register another airline if it hasn't provided funding");
