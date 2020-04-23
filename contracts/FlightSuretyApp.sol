@@ -21,8 +21,8 @@ contract FlightSuretyApp {
     uint8 private constant STATUS_CODE_LATE_OTHER = 50;
 
     // Amounts to be taken care
-    uint256 private constant MAX_INSURANCE_AMOUNT = 1;
-    uint256 private constant REGISTRATION_AMOUNT = 10;
+    uint256 private constant MAX_INSURANCE_AMOUNT = 1000000000000000000; //  1 ether
+    uint256 private constant REGISTRATION_AMOUNT = 10000000000000000000; // 10 ether
 
     FlightSuretyData flightSuretyData;      // The data contract state variable
 
@@ -135,7 +135,7 @@ contract FlightSuretyApp {
     requireIsOperational
     isExistingActiveAirline
     {
-        (bool success, string memory message) = flightSuretyData.registerAirline(name, airline);
+        (bool success, string memory message) = flightSuretyData.registerAirline(msg.sender, name);
 
         emit AirlineRegistered(success, message, 0);
 
@@ -150,7 +150,7 @@ contract FlightSuretyApp {
     public
     payable
     {
-        flightSuretyData.fund();
+        flightSuretyData.fund(msg.sender);
         emit AirlineRegistered(true, "Airline funded, good to go", 0);
     }
 
@@ -161,7 +161,7 @@ contract FlightSuretyApp {
     requireIsOperational
     public
     {
-        uint votes = flightSuretyData.voteAirline(airline);
+        uint votes = flightSuretyData.voteAirline(airline, msg.sender);
 
         emit AirlineRegistered(true, "Airline has a new vote", votes);
 
@@ -247,7 +247,7 @@ contract FlightSuretyApp {
     external
     payable
     {
-        flightSuretyData.buy(airline, flight, timestamp, calculateInsurancePayAmount());
+        flightSuretyData.buy(airline, flight, timestamp, calculateInsurancePayAmount(), msg.sender);
     }
 
     /**
@@ -437,13 +437,13 @@ contract FlightSuretyApp {
 contract FlightSuretyData {
     function isOperational() external view returns(bool);
     function setOperatingStatus(bool mode) external;
-    function registerAirline(string calldata name, address airline) external payable returns(bool success, string memory message);
-    function voteAirline(address airline) external returns(uint);
+    function registerAirline(address airline, string calldata name) external payable returns(bool success, string memory message);
+    function voteAirline(address airline, address voter) external returns(uint);
     function registerFlight(string calldata flight, uint256 timestamp) external returns(bytes32 key);
-    function buy(address airline, string calldata flight, uint256 timestamp, uint256 insuranceAmount) external;
+    function buy(address airline, string calldata flight, uint256 timestamp, uint256 insuranceAmount, address buyer) external;
     function creditInsurees(bytes32 key) external;
     function pay(address payable receiver) external payable returns(uint256 amount);
-    function fund() public payable;
+    function fund(address airline) public payable;
     function getFlightKey(address airline, string calldata flight, uint256 timestamp) external returns(bytes32);
     function isActiveAndFunded(address airline) external view returns(bool);
     function isActive(address airline) external view returns(bool);
