@@ -21,8 +21,8 @@ contract FlightSuretyApp {
     uint8 private constant STATUS_CODE_LATE_OTHER = 50;
 
     // Amounts to be taken care
-    uint256 private constant MAX_INSURANCE_AMOUNT = 1000000000000000000; //  1 ether
-    uint256 private constant REGISTRATION_AMOUNT = 10000000000000000000; // 10 ether
+    uint256 private constant MAX_INSURANCE_AMOUNT = 1000000000000000000; // 1 ether
+    uint256 private constant REGISTRATION_AMOUNT = 10000000000000000000; // 10 eher
 
     FlightSuretyData flightSuretyData;      // The data contract state variable
 
@@ -59,21 +59,67 @@ contract FlightSuretyApp {
         _;
     }
 
-    modifier isExistingActiveAirline()
+    modifier isExistingActiveAirline(address airline)
     {
-        flightSuretyData.isActiveAndFunded(msg.sender);
+        require(this.isActiveAndFunded(airline), "The registrar is not active");
         _;
     }
 
     modifier checkForRefund(uint256 amount)
     {
-        require(msg.value >= amount, "Amount id not enough");
+        require(msg.value >= amount, "Amount is not enough");
         _;
         uint256 refund = msg.value - amount;
 
         if (refund > 0) {
             msg.sender.transfer(refund);
         }
+    }
+
+    /**
+     * @dev Modifier that requires the sender to be an active airline
+     */
+    modifier requireIsAnActiveAirline(address airline)
+    {
+        require(flightSuretyData.isAirline(airline), "Caller is not an existing airline");
+        require(this.isActiveAndFunded(airline), "Caller is not yet an active airline");
+        _;
+    }
+
+    /**
+     * @dev Modifier that requires the airline to be a new one
+     */
+    modifier isNewAirline(address airline)
+    {
+        require(!flightSuretyData.isAirline(airline), "Airline already registered");
+        _;
+    }
+
+    /**
+     * @dev Modifier that requires vote for the airline to be registered
+     */
+    modifier requireVoting()
+    {
+        require(flightSuretyData.getAirlineTotal() > 4, "Airline don't need votes to register");
+        _;
+    }
+
+    /**
+     * @dev Modifier that requires the voter to be an active airline
+     */
+    modifier requireVoterToBeActive(address airline)
+    {
+        require(this.isActiveAndFunded(airline), "Airline cannot vote");
+        _;
+    }
+
+    /**
+     * @dev Modifier requires the airline is not yet active
+     */
+    modifier requireAirlineNotActive(address airline)
+    {
+        require(!this.isActive(airline), "Airline already active");
+        _;
     }
 
     /********************************************************************************************/
@@ -96,6 +142,48 @@ contract FlightSuretyApp {
     /*                                       UTILITY FUNCTIONS                                  */
     /********************************************************************************************/
 
+    /**
+    * @dev To check if the airline is an active and funded member
+    */
+    function isActiveAndFunded
+    (
+        address airline
+    )
+    external
+    view
+    returns(bool)
+    {
+        return flightSuretyData.isActiveAndFunded(airline);
+    }
+
+    /**
+    * @dev To check if the airline is an active and funded member
+    */
+    function isActive
+    (
+        address airline
+    )
+    external
+    view
+    returns(bool)
+    {
+        return flightSuretyData.isActive(airline);
+    }
+
+    /**
+    * @dev To check if the airline is an active and funded member
+    */
+    function isFunded
+    (
+        address airline
+    )
+    external
+    view
+    returns(bool)
+    {
+        return flightSuretyData.isFunded(airline);
+    }
+
     function isOperational()
     public
     view
@@ -109,7 +197,18 @@ contract FlightSuretyApp {
         flightSuretyData.setOperatingStatus(mode);
     }
 
-    function calculateInsurancePayAmount()
+    function getAirlineByAddress
+    (
+        address airlineAddress
+    )
+    external
+    view
+    returns(string memory, bool, bool, uint256)
+    {
+        return flightSuretyData.getAirlineInfo(airlineAddress);
+    }
+
+    function calculateInsuranceAmount()
     internal
     returns(uint256 amount)
     {
@@ -128,51 +227,91 @@ contract FlightSuretyApp {
      */
     function registerAirline
     (
-        string calldata name,
+        string memory name,
         address airline
     )
-    external
+    public
     requireIsOperational
-    isExistingActiveAirline
+    isNewAirline(airline)
+    requireIsAnActiveAirline(msg.sender)
     {
-        (bool success, string memory message) = flightSuretyData.registerAirline(msg.sender, name);
+        (bool success, string memory message) = flightSuretyData.registerAirline(name, airline);
 
         emit AirlineRegistered(success, message, 0);
 
-        if (flightSuretyData.isActive(airline)) {
+        if (this.isActive(airline)) {
             emit AirlineRegistered(true, "Airline accepted, waiting for funding", 0);
         }
     }
 
-    function fundAirline
-    (
-    )
-    public
-    payable
-    {
-        flightSuretyData.fund(msg.sender);
-        emit AirlineRegistered(true, "Airline funded, good to go", 0);
-    }
-
+    /**
+     * @dev Vote an airline
+     */
     function voteAirline
     (
         address airline
     )
     requireIsOperational
+    requireVoting
+    requireVoterToBeActive(msg.sender)
+    requireAirlineNotActive(msg.sender)
     public
     {
         uint votes = flightSuretyData.voteAirline(airline, msg.sender);
 
         emit AirlineRegistered(true, "Airline has a new vote", votes);
 
-        if (flightSuretyData.isActive(airline)) {
+        if (this.isActive(airline)) {
             emit AirlineRegistered(true, "Airline accepted, waiting for funding", votes);
         }
     }
 
     /**
+     * @dev Fund an airline to make it active
+     */
+    function fundAirline
+    (
+    )
+    public
+    requireIsOperational
+    checkForRefund(REGISTRATION_AMOUNT)
+    payable
+    {
+        address payable dataContract = address(uint160(address(flightSuretyData)));
+        dataContract.transfer(msg.value);
+        flightSuretyData.fund(msg.sender);
+        emit AirlineRegistered(true, "Airline funded, good to go", 0);
+    }
+
+    /**
+     *  @dev debugging function to check the airline info
+     */
+    function getAirlineInfo
+    (
+        address airline
+    )
+    view
+    public
+    requireIsOperational
+    returns(string memory name, bool funded, bool mode, uint256 votes)
+    {
+        (name, funded, mode, votes) = flightSuretyData.getAirlineInfo(airline);
+    }
+
+    /**
+     * @dev Get all Airline name
+     */
+    function getAllAirlineName()
+    external
+    view
+    requireIsOperational
+    returns(bytes32[] memory)
+    {
+        return flightSuretyData.getAllAirlineName();
+    }
+
+    /**
      * @dev Register a future flight for insuring.
-     *
      */
     function registerFlight
     (
@@ -180,12 +319,25 @@ contract FlightSuretyApp {
         uint256 timestamp
     )
     requireIsOperational
+    requireIsAnActiveAirline(msg.sender)
     requireFlightToBeInFuture(timestamp)
     external
     {
-        bytes32 key = flightSuretyData.registerFlight(flight, timestamp);
+        (bool success, string memory message) = flightSuretyData.registerFlight(msg.sender, flight, timestamp);
+        require(success, "Flight registration was not successful");
+        emit FlightRegistered(STATUS_CODE_UNKNOWN, message, 0);
+    }
 
-        emit FlightRegistered(STATUS_CODE_UNKNOWN, "Flight registered", key);
+    /**
+     * @dev Get all Airline name
+     */
+    function getAllFlightsName()
+    external
+    view
+    requireIsOperational
+    returns(bytes32[] memory)
+    {
+        return flightSuretyData.getAllFlightsName();
     }
 
     /**
@@ -201,16 +353,16 @@ contract FlightSuretyApp {
     requireIsOperational
     internal
     {
-        bytes32 key = flightSuretyData.getFlightKey(airline, flight, timestamp);
-
         emit FlightStatusInfo(airline, flight, timestamp, statusCode);
 
         if (statusCode == STATUS_CODE_LATE_AIRLINE) {
-            flightSuretyData.creditInsurees(key);
+            flightSuretyData.creditInsurees(flight);
         }
     }
 
-    // Generate a request for oracles to fetch flight information
+    /**
+     * @dev Generate a request for oracles to fetch flight information
+     */
     function fetchFlightStatus
     (
         address airline,
@@ -227,33 +379,35 @@ contract FlightSuretyApp {
         oracleResponses[key] = ResponseInfo({
             requester: msg.sender,
             isOpen: true
-            });
+        });
 
         emit OracleRequest(index, airline, flight, timestamp);
     }
 
     /**
-     *  @dev Buy an insurance for a future flight
-    */
+     * @dev Buy an insurance for a future flight
+     */
     function buyInsurance
     (
-        address airline,
         string calldata flight,
+        string calldata ticket,
         uint256 timestamp
     )
     requireIsOperational
     requireFlightToBeInFuture(timestamp)
-    checkForRefund(calculateInsurancePayAmount())
+    checkForRefund(calculateInsuranceAmount())
     external
     payable
     {
-        flightSuretyData.buy(airline, flight, timestamp, calculateInsurancePayAmount(), msg.sender);
+        flightSuretyData.buy(flight, ticket, calculateInsuranceAmount(), msg.sender);
     }
 
     /**
-     *  @dev Receive a payment if allotted
-    */
-    function receivePayout()
+     * @dev Receive a payment if allotted
+     */
+    function receivePayout
+    (
+    )
     requireIsOperational
     external
     payable
@@ -264,8 +418,8 @@ contract FlightSuretyApp {
     }
 
     /**
-     *  @dev function just for testing that the contract is working well
-    */
+     * @dev function just for testing that the contract is working well
+     */
     function setTestingMode
     (
         bool mode
@@ -435,17 +589,30 @@ contract FlightSuretyApp {
 }
 
 contract FlightSuretyData {
-    function isOperational() external view returns(bool);
-    function setOperatingStatus(bool mode) external;
-    function registerAirline(address airline, string calldata name) external payable returns(bool success, string memory message);
-    function voteAirline(address airline, address voter) external returns(uint);
-    function registerFlight(string calldata flight, uint256 timestamp) external returns(bytes32 key);
-    function buy(address airline, string calldata flight, uint256 timestamp, uint256 insuranceAmount, address buyer) external;
-    function creditInsurees(bytes32 key) external;
-    function pay(address payable receiver) external payable returns(uint256 amount);
-    function fund(address airline) public payable;
-    function getFlightKey(address airline, string calldata flight, uint256 timestamp) external returns(bytes32);
+    /****************************************** Modifier ***********************************/
     function isActiveAndFunded(address airline) external view returns(bool);
     function isActive(address airline) external view returns(bool);
     function isFunded(address airline) external view returns(bool);
+    function isAirline(address airline) external view returns(bool);
+
+    /***************************************** Utilities ***********************************/
+    function isOperational() external view returns(bool);
+    function setOperatingStatus(bool mode) external;
+
+    /****************************************** Airlines ***********************************/
+    function registerAirline(string calldata name, address airline) external returns(bool success, string memory message);
+    function voteAirline(address airline, address voter) external returns(uint);
+    function fund(address airline) public payable;
+    function getAirlineInfo(address airline) external view returns(string memory, bool, bool, uint256);
+    function getAirlineTotal() external view returns(uint);
+    function getAllAirlineName() external view returns(bytes32[] memory);
+
+    /****************************************** Flight ************************************/
+    function registerFlight(address airline, string calldata flight, uint256 timestamp) external returns(bool success, string memory message);
+    function getAllFlightsName() external view returns(bytes32[] memory);
+
+    /****************************************** Insurance *********************************/
+    function buy(string calldata flight, string calldata ticket, uint256 insuranceAmount, address payable buyer) external;
+    function creditInsurees(string calldata flight) external;
+    function pay(address payable receiver) external payable returns(uint256 amount);
 }
