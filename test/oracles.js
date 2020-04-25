@@ -24,10 +24,10 @@ contract('Oracles', async (accounts) => {
     console.log(fee);
 
     // ACT
-    for(let a=1; a<=TEST_ORACLES_COUNT; a++) {
-      let count = a > 10 ? a - 11 : a - 1;
-      await config.flightSuretyApp.registerOracle({ from: accounts[count], value: fee });
-      let result = await config.flightSuretyApp.getMyIndexes.call({from: accounts[count]});
+    for(let a=0; a<TEST_ORACLES_COUNT; a++) {
+      let count = a + 20;
+      await config.flightSuretyApp.registerOracle({ from: config.testAddresses[count], value: fee });
+      let result = await config.flightSuretyApp.getMyIndexes.call({from: config.testAddresses[count]});
       console.log(`Oracle Registered: ${result[0]}, ${result[1]}, ${result[2]}`);
     }
   });
@@ -48,7 +48,7 @@ contract('Oracles', async (accounts) => {
     for(let a=1; a<TEST_ORACLES_COUNT; a++) {
 
       // Get oracle information
-      let oracleIndexes = await config.flightSuretyApp.getMyIndexes.call({ from: accounts[a]});
+      let oracleIndexes = await config.flightSuretyApp.getMyIndexes.call({ from: accounts[a + 20]});
       for(let idx=0;idx<3;idx++) {
 
         try {

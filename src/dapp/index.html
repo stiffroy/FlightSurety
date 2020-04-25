@@ -5,28 +5,90 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <title>FlightSurety</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/4.4.1/css/bootstrap.min.css" rel="stylesheet">
     <link rel="icon" type="image/x-icon" href="favicon.ico">
 </head>
 
 <body>
 
-    <nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
-        <a class="navbar-brand" href="#">FlightSurety</a>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault"
+<nav class="navbar navbar-expand-md navbar-dark bg-dark fixed-top">
+    <a class="navbar-brand" href="#">FlightSurety</a>
+    <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbarsExampleDefault" aria-controls="navbarsExampleDefault"
             aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-    </nav>
+        <span class="navbar-toggler-icon"></span>
+    </button>
+</nav>
 
-    <main class="container">
+<main class="container">
+    <div class="row top-20">
+        <div class="col-4 form-group">
+            <label for="flight-number">Flight Number</label>
+            <input type="text" class="form-control" id="flight-number">
+        </div>
 
-        <div id="display-wrapper" class="top-20">
+        <div class="col-4 form-group">
+            <label for="ticket-number">Ticket Number</label>
+            <input type="text" class="form-control" id="ticket-number">
         </div>
-        <div class="row top-20">
-            <label class="form" for="flight-number">Flight</label> <input type="text" id="flight-number"> <button class="btn btn-primary" id="submit-oracle">Submit to Oracles</button>
+
+        <div class="col-4 form-group">
+            <label for="amount">Insurance Amount</label>
+            <input type="number" class="form-control" id="amount">
         </div>
-    </main>
+    </div>
+    <div class="row top-20">
+        <div class="col"></div>
+        <div class="col-md-auto">
+            <button class="btn btn-primary mr-3" id="oracle-submit">Submit Oracle</button>
+            <button class="btn btn-primary mr-3" id="insurance-buy">Buy Insurance</button>
+            <button class="btn btn-primary mr-3" id="insurance-withdraw">Withdraw Insurance</button>
+        </div>
+        <div class="col"></div>
+    </div>
+    <div class="row">
+        <div class="col-8 offset-col-2">
+            <div id="display-test-results" class="top-20">
+                <h4>Test data</h4>
+                <table>
+                    <thead>
+                    <tr>
+                        <th scope="col">Flights</th>
+                        <th scope="col">&nbsp;</th>
+                        <th scope="col">Ticket Numbers</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>EK573</td>
+                        <td>&nbsp;</td>
+                        <td>112, 113</td>
+                    </tr>
+                    <tr>
+                        <td>EK053</td>
+                        <td>&nbsp;</td>
+                        <td>121, 122</td>
+                    </tr>
+                    <tr>
+                        <td>QR60</td>
+                        <td>&nbsp;</td>
+                        <td>445, 443</td>
+                    </tr>
+                    <tr>
+                        <td>QR546</td>
+                        <td>&nbsp;</td>
+                        <td>556, 567</td>
+                    </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="col-8 offset-col-2">
+            <div id="display-wrapper" class="top-20"></div>
+        </div>
+    </div>
+</main>
 
 </body>
 
