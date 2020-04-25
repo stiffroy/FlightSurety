@@ -2,6 +2,19 @@
 
 FlightSurety is a sample application project for Udacity's Blockchain course.
 
+## Pre-requisite
+
+To run this project one needs to have Ganache UI (preferred as the transactions and account balances can be easily seen) with a minimum of 50 accounts
+`account[0]` is the owner account and `account[1]` is the first registered airline account at the time of deployment.
+
+The `firstAirline` variable in the `migrations/2_deploy_contracts.js` should be changes to the address for the first flight (preferably `account[1]`).
+
+Accounts from `account[20]` to `account[49]` (30 accounts) are registered for the oracles in this project.
+
+NOTE: `account[11]` is taken as the customer account in this project.
+
+`npm install`
+
 ## Install
 
 This repository contains Smart Contract code in Solidity (using Truffle), tests (also using Truffle), dApp scaffolding (using HTML, CSS and JS) and server app scaffolding.
@@ -9,6 +22,7 @@ This repository contains Smart Contract code in Solidity (using Truffle), tests 
 To install, download or clone the repo, then:
 
 `npm install`
+
 `truffle compile`
 
 ## Develop Client
@@ -16,6 +30,7 @@ To install, download or clone the repo, then:
 To run truffle tests:
 
 `truffle test ./test/flightSurety.js`
+
 `truffle test ./test/oracles.js`
 
 To use the dapp:
