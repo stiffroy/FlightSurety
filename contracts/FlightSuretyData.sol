@@ -28,6 +28,7 @@ contract FlightSuretyData {
         uint256 departureTime;
         uint256 updatedTimestamp;
         address airline;
+        uint256[] tickets;
     }
     mapping(bytes32 => Flight) private flights;
     struct FlightList {
@@ -38,7 +39,7 @@ contract FlightSuretyData {
 
     // The state variables for Insurance
     struct Insurance {
-        string ticket;
+        uint256 ticket;
         string flight;
         address buyer;
         uint256 amount;
@@ -340,9 +341,6 @@ contract FlightSuretyData {
     public
     payable
     {
-        require(this.isActive(airline), "You still need some more votes");
-        require(!this.isFunded(airline), "You are already funded");
-
         airlines[airline].funded = true;
         airlinesList.push(AirlineList({
             name: airlines[airline].name,
@@ -408,7 +406,8 @@ contract FlightSuretyData {
     (
         address airline,
         string calldata flight,
-        uint256 timestamp
+        uint256 timestamp,
+        uint256[] calldata tickets
     )
     external
     returns(bool success, string memory message)
@@ -420,7 +419,8 @@ contract FlightSuretyData {
             statusCode: STATUS_CODE_UNKNOWN,
             departureTime: timestamp,
             updatedTimestamp: now,
-            airline: airline
+            airline: airline,
+            tickets: tickets
         });
         flightsList.push(FlightList({
             name: flight,
@@ -449,6 +449,27 @@ contract FlightSuretyData {
     }
 
     /**
+     * @dev Add tickets to a flight
+     */
+    function addTicketsToFlight
+    (
+        string calldata flight,
+        uint256[] calldata tickets
+    )
+    external
+    returns(bool success)
+    {
+        success = false;
+        bytes32 key = getFlightKeyByName(flight);
+
+        for(uint i = 0; i < tickets.length; i++) {
+            flights[key].tickets.push(tickets[i]);
+        }
+
+        success = true;
+    }
+
+    /**
      * @dev Supporting functions to get the keys for saving the flight
      */
     function getFlightKey
@@ -474,20 +495,20 @@ contract FlightSuretyData {
     function buy
     (
         string calldata flight,
-        string calldata ticket,
-        uint256 insuranceAmount,
+        uint256 ticket,
         address payable buyer
     )
     external
+    payable
     {
+        bytes32 key = getFlightKeyByName(flight);
+        require(flights[key].departureTime > now, "Flight should be in future");
         Insurance memory insurance = Insurance({
             ticket: ticket,
             flight: flight,
             buyer: buyer,
-            amount: insuranceAmount
+            amount: msg.value
         });
-        address(this).transfer(insuranceAmount);
-        bytes32 key = getFlightKeyByName(flight);
         insureList[key].push(insurance);
     }
 
@@ -505,7 +526,7 @@ contract FlightSuretyData {
 
         for(uint i = 0; i < insurances.length; i++) {
             address customer = insurances[i].buyer;
-            uint256 amount = insurances[i].amount;
+            uint256 amount = insurances[i].amount * 150 / 100;
 
             if (payoutList[customer] == 0) {
                 payoutList[customer] = amount;

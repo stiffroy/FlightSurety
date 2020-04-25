@@ -213,7 +213,7 @@ contract FlightSuretyApp {
     returns(uint256 amount)
     {
         amount = msg.value;
-        if (amount < MAX_INSURANCE_AMOUNT) {
+        if (amount > MAX_INSURANCE_AMOUNT) {
             amount = MAX_INSURANCE_AMOUNT;
         }
     }
@@ -277,9 +277,9 @@ contract FlightSuretyApp {
     checkForRefund(REGISTRATION_AMOUNT)
     payable
     {
-        address payable dataContract = address(uint160(address(flightSuretyData)));
-        dataContract.transfer(msg.value);
-        flightSuretyData.fund(msg.sender);
+        require(this.isActive(msg.sender), "You still need some more votes");
+        require(!this.isFunded(msg.sender), "You are already funded");
+        flightSuretyData.fund.value(msg.value)(msg.sender);
         emit AirlineRegistered(true, "Airline funded, good to go", 0);
     }
 
@@ -316,14 +316,15 @@ contract FlightSuretyApp {
     function registerFlight
     (
         string calldata flight,
-        uint256 timestamp
+        uint256 timestamp,
+        uint256[] calldata tickets
     )
     requireIsOperational
     requireIsAnActiveAirline(msg.sender)
     requireFlightToBeInFuture(timestamp)
     external
     {
-        (bool success, string memory message) = flightSuretyData.registerFlight(msg.sender, flight, timestamp);
+        (bool success, string memory message) = flightSuretyData.registerFlight(msg.sender, flight, timestamp, tickets);
         require(success, "Flight registration was not successful");
         emit FlightRegistered(STATUS_CODE_UNKNOWN, message, 0);
     }
@@ -390,16 +391,14 @@ contract FlightSuretyApp {
     function buyInsurance
     (
         string calldata flight,
-        string calldata ticket,
-        uint256 timestamp
+        uint256 ticket
     )
     requireIsOperational
-    requireFlightToBeInFuture(timestamp)
     checkForRefund(calculateInsuranceAmount())
     external
     payable
     {
-        flightSuretyData.buy(flight, ticket, calculateInsuranceAmount(), msg.sender);
+        flightSuretyData.buy.value(calculateInsuranceAmount())(flight, ticket, msg.sender);
     }
 
     /**
@@ -608,11 +607,12 @@ contract FlightSuretyData {
     function getAllAirlineName() external view returns(bytes32[] memory);
 
     /****************************************** Flight ************************************/
-    function registerFlight(address airline, string calldata flight, uint256 timestamp) external returns(bool success, string memory message);
+    function registerFlight(address airline, string calldata flight, uint256 timestamp, uint256[] calldata tickets) external returns(bool success, string memory message);
     function getAllFlightsName() external view returns(bytes32[] memory);
+    function addTicketsToFlight(string calldata flight, uint256[] calldata tickets) external returns(bool success);
 
     /****************************************** Insurance *********************************/
-    function buy(string calldata flight, string calldata ticket, uint256 insuranceAmount, address payable buyer) external;
+    function buy(string calldata flight, uint256 ticket, address payable buyer) external payable;
     function creditInsurees(string calldata flight) external;
     function pay(address payable receiver) external payable returns(uint256 amount);
 }
